@@ -6,7 +6,7 @@
 /*   By: manbengh <manbengh@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/05 18:23:44 by manbengh          #+#    #+#             */
-/*   Updated: 2025/12/05 18:47:34 by manbengh         ###   ########.fr       */
+/*   Updated: 2025/12/08 19:32:12 by manbengh         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,8 +16,10 @@
 
 int parseInput(int port, std::string password)
 {
+    (void)password;
     if (port <= 0 || port > 65535)
         return 1;
+    return 0;
 }
 
 
@@ -30,14 +32,21 @@ int main(int ac, char **av)
     }
     
 
-    int port = std::atoi(av[1]);
-    std::string password = av[2];
-    if (parseInput(port, password))
+    try
     {
-        std::cerr << "Error : invalid arguments\n" << std::endl;
-        return 1;
+        int port = std::atoi(av[1]);
+        std::string password = av[2];
+        if (parseInput(port, password))
+        {
+            std::cerr << "Error : invalid arguments\n" << std::endl;
+            return 1;
+        }
+        
+        Server server(port, password);
+        server.startServ();
     }
-    
-    Server server(port, password);
-    server.startServ();
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << std::endl;
+    }
 }
