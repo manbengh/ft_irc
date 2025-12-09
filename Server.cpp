@@ -6,7 +6,7 @@
 /*   By: manbengh <manbengh@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/05 18:24:04 by manbengh          #+#    #+#             */
-/*   Updated: 2025/12/08 19:34:10 by manbengh         ###   ########.fr       */
+/*   Updated: 2025/12/09 17:25:53 by manbengh         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -35,7 +35,49 @@ void Server::processPoll()
             
         if (_pollfds[0].revents & POLLIN)
         {
-            std::cout << "⭐ Un client frappe à la porte (POLLIN détecté) !" << std::endl;
+            sockaddr_in addrClient;
+            socklen_t clientLen = sizeof(addrClient);
+
+            int clientFD = accept(_server_fd, (sockaddr*)&addrClient, &clientLen);
+            if (clientFD < 0)
+            {
+                std::cerr << "accept() failed\n";
+                continue ;
+            }
+            std::cout << "⭐ Nouveau client connecté : fd=" << clientFD << std::endl;
+            
+            pollfd clientPoll;
+            clientPoll.fd = clientFD;
+            clientPoll.events = POLLIN;
+            clientPoll.revents = 0;
+            _pollfds.push_back(clientPoll);
+            
+            std::string hello = ":server 001 welcome to ft_irc ma star\r\n";
+            send(clientFD, hello.c_str(), hello.size(), 0);
+
+        }
+        _pollfds[0].revents = 0;
+        for (size_t i = 1; i < _pollfds.size(); i++)
+        {
+            if (_pollfds[i].revents & POLLIN)
+            {
+                char buffer[512];
+                int bytes = recv(_pollfds[i].fd, buffer, sizeof(buffer) - 1, 0);
+            
+                if (bytes < 0)
+                {            
+                    std::cout << "❌ Client fd=" << _pollfds[i].fd << " déconnecté\n";
+                    close(_pollfds[i].fd);
+                    _pollfds.erase(_pollfds.begin() + i);
+                    i--;
+                    continue;
+                }
+                buffer[bytes] = '\0';
+                std::cout << "📩 Message reçu du client fd=" << _pollfds[i].fd
+                  << " : " << buffer << std::endl;
+                  
+                  _pollfds[i].revents = 0;
+            }
         }
         
     }
@@ -71,6 +113,8 @@ void Server::startServ()
     
     
     processPoll();
+    
+    
 }
 
 // while (true)
