@@ -9,7 +9,10 @@
 #include <cstdlib>
 #include <poll.h>
 #include <vector>
+#include "Client.hpp"
+#include <map>
 
+class Client;
 
 class Server
 {
@@ -18,6 +21,7 @@ class Server
         std::string _password;
         int _server_fd;
         std::vector<pollfd> _pollfds;
+        std::map<int, Client> _clients;
 
     public:
         Server(int port, std::string password);
@@ -25,7 +29,7 @@ class Server
 
         void startServ();
         void processPoll();
-
+        void registerClient(int fd);
 };
 
 

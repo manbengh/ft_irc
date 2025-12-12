@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: manbengh <manbengh@student.42.fr>          +#+  +:+       +#+        */
+/*   By: ahbey <ahbey@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/05 18:24:04 by manbengh          #+#    #+#             */
-/*   Updated: 2025/12/09 17:25:53 by manbengh         ###   ########.fr       */
+/*   Updated: 2025/12/12 19:30:19 by ahbey            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -38,6 +38,7 @@ void Server::processPoll()
             sockaddr_in addrClient;
             socklen_t clientLen = sizeof(addrClient);
 
+
             int clientFD = accept(_server_fd, (sockaddr*)&addrClient, &clientLen);
             if (clientFD < 0)
             {
@@ -52,8 +53,10 @@ void Server::processPoll()
             clientPoll.revents = 0;
             _pollfds.push_back(clientPoll);
             
-            std::string hello = ":server 001 welcome to ft_irc ma star\r\n";
-            send(clientFD, hello.c_str(), hello.size(), 0);
+            _clients[clientFD] = Client(clientFD);//
+
+            // std::string hello = ":server 001 welcome to ft_irc ma star\r\n";
+            // send(clientFD, hello.c_str(), hello.size(), 0);// envoie les donnees sur sock clt fd
 
         }
         _pollfds[0].revents = 0;
@@ -62,11 +65,14 @@ void Server::processPoll()
             if (_pollfds[i].revents & POLLIN)
             {
                 char buffer[512];
-                int bytes = recv(_pollfds[i].fd, buffer, sizeof(buffer) - 1, 0);
+                int fd = _pollfds[i].fd;//
+                int bytes = recv(_pollfds[i].fd, buffer, sizeof(buffer) - 1, 0);// lis les donne envoyer par les clicli
             
-                if (bytes < 0)
+                if (bytes <= 0)//=
                 {            
                     std::cout << "❌ Client fd=" << _pollfds[i].fd << " déconnecté\n";
+                    close(fd);//
+                    _clients.erase(fd);//
                     close(_pollfds[i].fd);
                     _pollfds.erase(_pollfds.begin() + i);
                     i--;
@@ -79,6 +85,8 @@ void Server::processPoll()
                   _pollfds[i].revents = 0;
             }
         }
+        
+        
         
     }
     
@@ -97,25 +105,26 @@ void Server::startServ()
     
     sockaddr_in addrServer;
     std::memset(&addrServer, 0, sizeof(addrServer));
-    addrServer.sin_family = AF_INET;
-    addrServer.sin_addr.s_addr = INADDR_ANY;
-    addrServer.sin_port = htons(_port);
+    addrServer.sin_family = AF_INET;//IPv4 
+    addrServer.sin_addr.s_addr = INADDR_ANY;// Le serveur ecoute ttes addr dispo
+    addrServer.sin_port = htons(_port); //mettre bon format pour le systeme
 
     //bind
-    if (bind(_server_fd, (sockaddr*)&addrServer, sizeof(addrServer)) < 0)
+    if (bind(_server_fd, (sockaddr*)&addrServer, sizeof(addrServer)) < 0) // attacher la socket srvFd a addr/port 
         throw std::runtime_error("bind() failed");
     
     //listen
-    if (listen(_server_fd, SOMAXCONN) < 0)
+    if (listen(_server_fd, SOMAXCONN) < 0)// somax = val max auto par syst
         throw std::runtime_error("listen() failed");
         
     std::cout << "Server listening on port " << _port << "...\n";
     
     
     processPoll();
-    
-    
+     
 }
+
+
 
 // while (true)
 //     {
