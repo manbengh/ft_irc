@@ -1,16 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   Server.cpp                                         :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: ahbey <ahbey@student.42.fr>                +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/12/05 18:24:04 by manbengh          #+#    #+#             */
-/*   Updated: 2025/12/12 19:30:19 by ahbey            ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
-
 #include "Server.hpp"
 
 Server::Server(int port, std::string password) : _port(port), _password(password), _server_fd(-1)
@@ -46,7 +33,7 @@ void Server::processPoll()
                 continue ;
             }
             std::cout << "⭐ Nouveau client connecté : fd=" << clientFD << std::endl;
-            
+ 
             pollfd clientPoll;
             clientPoll.fd = clientFD;
             clientPoll.events = POLLIN;
@@ -54,9 +41,8 @@ void Server::processPoll()
             _pollfds.push_back(clientPoll);
             
             _clients[clientFD] = Client(clientFD);//
-
-            // std::string hello = ":server 001 welcome to ft_irc ma star\r\n";
-            // send(clientFD, hello.c_str(), hello.size(), 0);// envoie les donnees sur sock clt fd
+            // std::string err = "\r\n";
+            // send(clientFD, err.c_str(), err.size(), 0);
 
         }
         _pollfds[0].revents = 0;
@@ -65,28 +51,80 @@ void Server::processPoll()
             if (_pollfds[i].revents & POLLIN)
             {
                 char buffer[512];
-                int fd = _pollfds[i].fd;//
+                int fd = _pollfds[i].fd;
                 int bytes = recv(_pollfds[i].fd, buffer, sizeof(buffer) - 1, 0);// lis les donne envoyer par les clicli
             
-                if (bytes <= 0)//=
+                if (bytes <= 0)
                 {            
                     std::cout << "❌ Client fd=" << _pollfds[i].fd << " déconnecté\n";
-                    close(fd);//
-                    _clients.erase(fd);//
+                    close(fd);
+                    _clients.erase(fd);
                     close(_pollfds[i].fd);
                     _pollfds.erase(_pollfds.begin() + i);
                     i--;
                     continue;
                 }
                 buffer[bytes] = '\0';
-                std::cout << "📩 Message reçu du client fd=" << _pollfds[i].fd
-                  << " : " << buffer << std::endl;
-                  
-                  _pollfds[i].revents = 0;
+
+                std::string &clientBuff = _clients[fd].getBuffer();
+                clientBuff.append(buffer);
+
+                size_t pos;
+                while ((pos = clientBuff.find('\n')) != std::string::npos)
+                {
+                    std::cout << "lala: " <<  clientBuff << std::endl;
+                    std::string line = clientBuff.substr(0, pos);
+                    // enlever '\r' final si present
+                   if (!line.empty() && line[line.size() - 1] == '\r')
+                        line.erase(line.size() - 1);
+                    if (!line.empty())
+                    {
+                        std::cout << "📩 CMD reçue du client fd=" << fd << " : " << line << std::endl;
+
+                        std::stringstream ss(line);
+                        std::string cmd;
+                        ss >> cmd;
+                        
+                        if (cmd == "PASS")
+                        {
+                            std::string pass;
+                            ss >> pass;
+                            passCmd(pass, fd);
+                        }
+                        else if (cmd == "NICK") // nick doit etre unique a chaque clicli pas de double
+                        {
+                            std::string nick;
+                            ss >> nick;
+                            nickCmd(nick, fd);
+                        }
+                        else if (cmd == "USER")
+                        {
+                            std::string user, mode, unused;
+                            ss >> user >> mode >> unused;
+                            if (!user.empty())
+                            {
+                                _clients[fd].setUser(user);
+                                std::cout << "👤 User défini : " << user << " pour fd=" << fd << std::endl;
+                            }
+                        }
+                        Client &client = _clients[fd];
+                        if (client.isPassOK() && !client.getNick().empty() && !client.getUser().empty() && !client.isRegistered())
+                        {
+                            client.setRegistered(true);
+                            std::cout << "🎉 Client fd=" << fd << " est maintenant ENREGISTRÉ !" << std::endl;
+
+                            std::string welcome = ":server 001 " + client.getNick() + " :Welcome to the FT_IRC Network, " + client.getNick() + "\r\n";
+                            send(fd, welcome.c_str(), welcome.size(), 0);
+                        }
+                    }
+
+                    // effacer la ligne traitée
+                    clientBuff.erase(0, pos + 1);
+                }
+
+                _pollfds[i].revents = 0;
             }
         }
-        
-        
         
     }
     
@@ -119,26 +157,6 @@ void Server::startServ()
         
     std::cout << "Server listening on port " << _port << "...\n";
     
-    
     processPoll();
-     
+    
 }
-
-
-
-// while (true)
-//     {
-//         sockaddr_in addrClient;
-//         socklen_t clientLen = sizeof(addrClient);
-
-//         int clientFD = accept(_server_fd, (sockaddr*)&addrClient, &clientLen);
-//         if(clientFD < 0)
-//             continue;
-//         std::cout << "New client connected : fd=" << clientFD << std::endl;
-
-//         std::string hello = ": server 001 welcome to ft_irdc ma star\r\n";
-        
-//         send(clientFD, hello.c_str(), hello.size(), 0);
-
-//         close(clientFD);
-//     }

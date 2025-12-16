@@ -11,6 +11,7 @@
 #include <vector>
 #include "Client.hpp"
 #include <map>
+#include <sstream>
 
 class Client;
 
@@ -30,6 +31,8 @@ class Server
         void startServ();
         void processPoll();
         void registerClient(int fd);
+        void passCmd(std::string pass, int fd);
+        void nickCmd(std::string nick, int fd);
 };
 
 

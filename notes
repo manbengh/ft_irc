@@ -7,3 +7,12 @@ www.rfc-editor.org/rfc/rfc1459.html
 
 - serveur
 - 
+
+<!-- comment on verifier les cmd nick pass user -->
+recv() ---> buffer local ---> append ---> buffer client
+                                ↓
+                         chercher '\n'
+                                ↓
+                         traiter commande
+                                ↓
+                         supprimer du buffer
