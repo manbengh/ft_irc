@@ -33,6 +33,7 @@ class Server
         void registerClient(int fd);
         void passCmd(std::string pass, int fd);
         void nickCmd(std::string nick, int fd);
+        void cmdIdentify(std::string &clientBuff, int fd);
 };
 
 
