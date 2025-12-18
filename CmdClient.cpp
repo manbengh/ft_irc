@@ -4,6 +4,12 @@
 void Server::passCmd(std::string pass, int fd)
 {
 
+    if (pass.empty())
+    {
+        std::string err = ":server 461 PASS :Not enough parameters\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        return;
+    }
     if (pass == _password)
     {
         _clients[fd].setPassOK(true);
@@ -12,14 +18,22 @@ void Server::passCmd(std::string pass, int fd)
     else
     {
         _clients[fd].setPassOK(false);
-        std::string err = ":server 464 * :Password incorrect\r\n";
+        std::string err = ":server 464 :Password incorrect\r\n";
         send(fd, err.c_str(), err.size(), 0);
         std::cout << "❌ Mauvais password pour fd=" << fd << std::endl;
     }
 }
 
+
+
 void Server::nickCmd(std::string nick, int fd)
 {
+    if (nick.empty())
+    {
+        std::string err = ":server 431 :No nickname given\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        return;
+    }
     if (!nick.empty())
     {
         bool nickInUse = false;
@@ -48,6 +62,10 @@ void Server::nickCmd(std::string nick, int fd)
     }
 }
 
+
+
+
+
 void Server::handleJoin(int fd, std::string chanName)
 {
     Client &client = _clients[fd];
@@ -58,8 +76,18 @@ void Server::handleJoin(int fd, std::string chanName)
         return ;
     }
 
-    if (chanName.empty() || chanName[0] != '#')
-        return ;
+    if (chanName.empty())
+    {
+        std::string err = ":server 461 JOIN :Not enough parameters\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        return;
+    }
+    if (chanName[0] != '#' || chanName.size() == 1)
+    {
+        std::string err = ":server 403 " + chanName + " :No such channel\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        return;
+    }
     
     if (_channels.find(chanName) == _channels.end())
         _channels[chanName] = Channel(chanName);
@@ -149,7 +177,6 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
     while ((pos = clientBuff.find('\n')) != std::string::npos)
     {
         std::string line = clientBuff.substr(0, pos);
-        std::cout << "ma line = " << fd << line << "." << std::endl;
         // enlever '\r' final si present
         if (!line.empty() && line[line.size() - 1] == '\r')
             line.erase(line.size() - 1);
@@ -200,6 +227,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
             }
             else if (cmd == "PRIVMSG")
             {
+                //doit avoir :
                 std::string target;
                 ss >> target;
 
@@ -207,13 +235,43 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                 std::getline(ss, msg);
 
                 // retire ':' si présent
-                if (!msg.empty() && msg[0] == ' ')
-                    msg.erase(0, 1);
-                if (!msg.empty() && msg[0] == ':')
-                    msg.erase(0, 1);
-
+                if (target.empty())
+                {
+                    std::string err = ":server 411 :No recipient given (PRIVMSG)\r\n";
+                    send(fd, err.c_str(), err.size(), 0);
+                    return;
+                }
+                if (msg.empty() || msg[0] != ' ')
+                {
+                    std::string err = ":server 412 :No text to send\r\n";
+                    send(fd, err.c_str(), err.size(), 0);
+                    return;
+                }
+                msg.erase(0, 1);
+                if (msg.empty() || msg[0] != ':')
+                {
+                    std::string err = ":server 412 :No text to send\r\n";
+                    send(fd, err.c_str(), err.size(), 0);
+                    return;
+                }
+                msg.erase(0, 1);
                 handlePrivMsg(fd, target, msg);
             }
+
+
+            // else if (cmd == "QUIT")
+            // {
+            //     std::string reason;
+            //     ss >> reason;
+
+            //     if (!reason.empty() && reason[0] == ' ')
+            //         reason.erase(0, 1);
+            //     if (!reason.empty() && reason[0] == ':')
+            //         reason.erase(0, 1);
+            //     if (reason.empty())
+            //         reason = "Client Quit";
+            //     // handleQuit(fd, reason);
+            // }
         }
         // effacer la ligne traitée
         clientBuff.erase(0, pos + 1);

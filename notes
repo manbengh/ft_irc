@@ -16,3 +16,10 @@ recv() ---> buffer local ---> append ---> buffer client
                          traiter commande
                                 ↓
                          supprimer du buffer
+
+
+
+
+
+
+PRIVMG #channel : msg
