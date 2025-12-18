@@ -3,33 +3,29 @@
 
 #include "Client.hpp"
 #include "Server.hpp"
-
+#include <map>
 
 class Channel
 {
     private :
                 std::string _name;
                 std::string _topic;
-                std::map<int, bool> _clientCh;
-                std::map<int, Client> _clientChInv;
                 std::string _passwordCh;
-                bool _ifPass;
-                bool _isInvited;
-                bool _registeredCH;
+
+                std::map<int, bool> _clientCh;
+                std::map<int, bool> _invited;
+
 
     public :
 
-                Channel();
+                Channel(){};
                 Channel(std::string &name): _name(name){}
                 ~Channel();
 
-        
-                bool IfPassOkCH() const;
-                bool IsRegisteredCH() const;
-
-
-                void setIfPassOK(bool value);
-                void setRegisteredCH(bool value);
+                void addClient(int fd, bool isOper);
+                void removeClient(int fd);
+                bool hasClient(int fd)const;
+                const std::map<int, bool> &getClients()const;
 
 };
 

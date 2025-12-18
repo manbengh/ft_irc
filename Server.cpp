@@ -41,7 +41,8 @@ void Server::processPoll()
             _pollfds.push_back(clientPoll);
             
             _clients[clientFD] = Client(clientFD);//
-            std::string err = "Welcom to our FT_IRC, please put your : PASSWORD, NICK, USER\r\n";
+            std::string err = "Welcome to our FT_IRC, please put your : PASSWORD, NICK, USER\r\n";
+            //   "<client> :Welcome to the <networkname> Network, <nick>[!<user>@<host>]"
             send(clientFD, err.c_str(), err.size(), 0);
 
         }

@@ -10,11 +10,12 @@
 #include <poll.h>
 #include <vector>
 #include "Client.hpp"
+#include "Channel.hpp"
 #include <map>
 #include <sstream>
 
 class Client;
-
+class Channel;  
 class Server
 {
     private:
@@ -23,6 +24,8 @@ class Server
         int _server_fd;
         std::vector<pollfd> _pollfds;
         std::map<int, Client> _clients;
+
+        std::map<std::string, Channel> _channels;
 
     public:
         Server(int port, std::string password);
@@ -34,6 +37,9 @@ class Server
         void passCmd(std::string pass, int fd);
         void nickCmd(std::string nick, int fd);
         void cmdIdentify(std::string &clientBuff, int fd);
+        void handleJoin(int fd, std::string chanName);
+        void handlePrivMsg(int fd, std::string target, std::string msg);
+
 };
 
 
