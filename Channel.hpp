@@ -26,6 +26,7 @@ class Channel
                 void removeClient(int fd);
                 bool hasClient(int fd)const;
                 const std::map<int, bool> &getClients()const;
+                bool isOperator(int fd) const;
 
 };
 

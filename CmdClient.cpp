@@ -120,12 +120,39 @@ void Server::handlePart(int fd, std::string chanName, std::string reason)
         send(fd, "451 :You have not registered\r\n", 31, 0);
         return;
     }
-    if (chanName.empty() || !chanName.find('#'))
+    if (chanName.empty() || chanName.find('#'))
         return;
-    if (reason.empty())
-        return ;
-    std::string err = "CLinet : " + parter.getNick() + " has left\r\n";
-    send(fd, err.c_str(), err.size(), 0);
+        
+    if (_channels.find(chanName) == _channels.end())
+    {
+        std::string err = ":server 403 " + chanName + " :No such channel\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        return;
+    }
+    
+    Channel &chan = _channels[chanName];
+    if (!chan.hasClient(fd))
+    {
+        std::string err = ":server 442 " + chanName + " :You're not on that channel\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        return;
+    }
+
+    std::string fullMsg;
+    if (!reason.empty())
+        fullMsg = ":" + parter.getNick() + " PART " + chanName + " :" + reason + "\r\n";
+    else
+        fullMsg = ":" + parter.getNick() + " PART " + chanName + "\r\n";
+    for (std::map<int,bool>::const_iterator it = chan.getClients().begin();
+             it != chan.getClients().end(); ++it)
+    {
+        // if (it->first != fd) // pas envoyer au client qui envoie (pas sur)
+        send(it->first, fullMsg.c_str(), fullMsg.size(), 0);
+    }
+    chan.removeClient(fd);
+
+    if (chan.getClients().empty())
+        _channels.erase(chanName);
 }
 
 

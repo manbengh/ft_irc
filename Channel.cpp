@@ -10,7 +10,17 @@ void Channel::addClient(int fd, bool isOper)
 
 void Channel::removeClient(int fd)
 {
-    _clientCh.erase(fd);
+    bool ope = false;
+    std::map<int, bool>::iterator it = _clientCh.find(fd);
+
+    if (it != _clientCh.end())
+    {
+        ope = it->second;
+        _clientCh.erase(it);
+    }
+
+    if (ope && !_clientCh.empty())
+        _clientCh.begin()->second = true;
 }
 
 bool Channel::hasClient(int fd)const
