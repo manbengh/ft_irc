@@ -116,13 +116,12 @@ void Server::handlePrivMsg(int fd, std::string target, std::string msg)
 
     if (!sender.isRegistered())
     {
-        std::string err = "451 :You have not registered\r\n";
-        send(fd, err.c_str(), err.size(), 0);
+        send(fd, "451 :You have not registered\r\n", 31, 0);
         return;
     }
 
-    if (target.empty() || msg.empty())
-        return;
+    // if (target.empty() || msg.empty())
+    //     return;
 
     if (target[0] == '#')
     {
@@ -132,9 +131,10 @@ void Server::handlePrivMsg(int fd, std::string target, std::string msg)
             send(fd, err.c_str(), err.size(), 0);
             return;
         }
-        Channel &chan = _channels[target];
 
-        std::string fullMsg = ":" + sender.getNick() + " PRIVMSG " + target + " :" + msg + "\r\n";
+        Channel &chan = _channels[target];
+        std::string fullMsg =   ":" + sender.getNick() +
+                                " PRIVMSG " + target + " :" + msg + "\r\n";
 
         for (std::map<int,bool>::const_iterator it = chan.getClients().begin();
              it != chan.getClients().end(); ++it)
@@ -164,7 +164,8 @@ void Server::handlePrivMsg(int fd, std::string target, std::string msg)
             return;
         }
 
-        std::string fullMsg = ":" + sender.getNick() + " PRIVMSG " + target + " :" + msg + "\r\n";
+        std::string fullMsg =   ":" + sender.getNick() +
+                                " PRIVMSG " + target + " :" + msg + "\r\n";
         send(targetFd, fullMsg.c_str(), fullMsg.size(), 0);
     }
 }
@@ -227,37 +228,39 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
             }
             else if (cmd == "PRIVMSG")
             {
-                //doit avoir :
                 std::string target;
                 ss >> target;
 
-                std::string msg;
-                std::getline(ss, msg);
-
-                // retire ':' si présent
                 if (target.empty())
                 {
-                    std::string err = ":server 411 :No recipient given (PRIVMSG)\r\n";
-                    send(fd, err.c_str(), err.size(), 0);
-                    return;
+                    send(fd, ":server 411 :No recipient given (PRIVMSG)\r\n", 44, 0);
+                    clientBuff.erase(0, pos + 1);
+                    continue ;
                 }
-                if (msg.empty() || msg[0] != ' ')
+
+                std::string rest;
+                std::getline(ss, rest);
+                while (!rest.empty() && rest[0] == ' ')
+                    rest.erase(0, 1);
+
+                size_t colonPos = rest.find(':');//chercher le ':' qui introduit le msg
+                if (colonPos == std::string::npos)
                 {
-                    std::string err = ":server 412 :No text to send\r\n";
-                    send(fd, err.c_str(), err.size(), 0);
-                    return;
+                    send(fd, ":server 412 :No text to send\r\n", 33, 0);
+                    clientBuff.erase(0, pos + 1);
+                    continue ;
                 }
-                msg.erase(0, 1);
-                if (msg.empty() || msg[0] != ':')
+
+                std::string msg = rest.substr(colonPos + 1);// tout après le ':'
+                if (msg.empty())
                 {
-                    std::string err = ":server 412 :No text to send\r\n";
-                    send(fd, err.c_str(), err.size(), 0);
-                    return;
+                    send(fd, ":server 412 :No text to send\r\n", 33, 0);
+                    clientBuff.erase(0, pos + 1);
+                    continue ;
                 }
-                msg.erase(0, 1);
+
                 handlePrivMsg(fd, target, msg);
             }
-
 
             // else if (cmd == "QUIT")
             // {
@@ -273,7 +276,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
             //     // handleQuit(fd, reason);
             // }
         }
-        // effacer la ligne traitée
-        clientBuff.erase(0, pos + 1);
+
+        clientBuff.erase(0, pos + 1);// effacer la ligne traitée
     }
 }
