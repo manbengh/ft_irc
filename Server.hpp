@@ -39,7 +39,8 @@ class Server
         void cmdIdentify(std::string &clientBuff, int fd);
         void handleJoin(int fd, std::string chanName);
         void handlePrivMsg(int fd, std::string target, std::string msg);
-        void handleQuit(int fd, std::string reason);
+        // void handleQuit(int fd, std::string reason);
+        void handlePart(int fd, std::string chanName, std::string reason);
 };
 
 

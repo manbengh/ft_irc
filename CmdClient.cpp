@@ -110,6 +110,27 @@ void Server::handleJoin(int fd, std::string chanName)
 }
 
 
+
+void Server::handlePart(int fd, std::string chanName, std::string reason)
+{
+    Client &parter = _clients[fd];
+
+    if (!parter.isRegistered())
+    {
+        send(fd, "451 :You have not registered\r\n", 31, 0);
+        return;
+    }
+    if (chanName.empty() || !chanName.find('#'))
+        return;
+    if (reason.empty())
+        return ;
+    std::string err = "CLinet : " + parter.getNick() + " has left\r\n";
+    send(fd, err.c_str(), err.size(), 0);
+}
+
+
+
+
 void Server::handlePrivMsg(int fd, std::string target, std::string msg)
 {
     Client &sender = _clients[fd];
@@ -211,15 +232,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                     std::cout << "👤 User défini : " << user << " pour fd=" << fd << std::endl;
                 }
             }
-            Client &client = _clients[fd];
-            if (client.isPassOK() && !client.getNick().empty() && !client.getUser().empty() && !client.isRegistered())
-            {
-                client.setRegistered(true);
-                std::cout << "🎉 Client fd=" << fd << " est maintenant ENREGISTRÉ !" << std::endl;
-
-                std::string welcome = ":server 001 " + client.getNick() + " :Welcome to the FT_IRC Network, " + client.getNick() + "\r\n";
-                send(fd, welcome.c_str(), welcome.size(), 0);
-            }
+            
             else if (cmd == "JOIN")
             {
                 std::string chanName;
@@ -262,6 +275,22 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                 handlePrivMsg(fd, target, msg);
             }
 
+            else if (cmd == "PART")
+            {
+                std::string chanName;
+                ss >> chanName;
+            
+                std::string reason;
+                std::getline(ss, reason);
+
+                if (!reason.empty() && reason[0] == ' ')
+                    reason.erase(0, 1);
+                if (!reason.empty() && reason[0] == ':')
+                    reason.erase(0, 1);
+                handlePart(fd, chanName, reason);
+            }
+
+
             // else if (cmd == "QUIT")
             // {
             //     std::string reason;
@@ -275,6 +304,24 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
             //         reason = "Client Quit";
             //     // handleQuit(fd, reason);
             // }
+
+
+
+            else
+            {
+                std::string err = ":server 421 " + cmd + " :Unknown command\r\n";
+                send(fd, err.c_str(), err.size(), 0);
+            }
+
+            Client &client = _clients[fd];
+            if (client.isPassOK() && !client.getNick().empty() && !client.getUser().empty() && !client.isRegistered())
+            {
+                client.setRegistered(true);
+                std::cout << "🎉 Client fd=" << fd << " is now REGISTERED !" << std::endl;
+
+                std::string welcome = ":server 001 " + client.getNick() + " :Welcome to the FT_IRC Network, " + client.getNick() + "\r\n";
+                send(fd, welcome.c_str(), welcome.size(), 0);
+            }
         }
 
         clientBuff.erase(0, pos + 1);// effacer la ligne traitée
