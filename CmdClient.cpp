@@ -274,7 +274,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                 if (target.empty())
                 {
                     send(fd, ":server 411 :No recipient given (PRIVMSG)\r\n", 44, 0);
-                    clientBuff.erase(0, pos + 1);
+                    // clientBuff.erase(0, pos + 1);
                     continue ;
                 }
 
