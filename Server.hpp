@@ -41,6 +41,8 @@ class Server
         void handlePrivMsg(int fd, std::string target, std::string msg);
         // void handleQuit(int fd, std::string reason);
         void handlePart(int fd, std::string chanName, std::string reason);
+        void handleTopic(int fd, std::string chanName, std::string remains);
+         
 };
 
 

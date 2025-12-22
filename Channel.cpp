@@ -34,3 +34,12 @@ const std::map<int, bool> &Channel::getClients()const
 }
 
 
+const std::string &Channel::getTopic() const
+{
+    return _topic;
+}
+
+void Channel::setTopic(const std::string &topic)
+{
+    _topic = topic;
+}

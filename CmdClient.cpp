@@ -138,16 +138,16 @@ void Server::handlePart(int fd, std::string chanName, std::string reason)
         return;
     }
 
-    std::string fullMsg;
+    std::string allMsg;
     if (!reason.empty())
-        fullMsg = ":" + parter.getNick() + " PART " + chanName + " :" + reason + "\r\n";
+        allMsg = ":" + parter.getNick() + " PART " + chanName + " :" + reason + "\r\n";
     else
-        fullMsg = ":" + parter.getNick() + " PART " + chanName + "\r\n";
+        allMsg = ":" + parter.getNick() + " PART " + chanName + "\r\n";
     for (std::map<int,bool>::const_iterator it = chan.getClients().begin();
              it != chan.getClients().end(); ++it)
     {
         // if (it->first != fd) // pas envoyer au client qui envoie (pas sur)
-        send(it->first, fullMsg.c_str(), fullMsg.size(), 0);
+        send(it->first, allMsg.c_str(), allMsg.size(), 0);
     }
     chan.removeClient(fd);
 
@@ -181,14 +181,14 @@ void Server::handlePrivMsg(int fd, std::string target, std::string msg)
         }
 
         Channel &chan = _channels[target];
-        std::string fullMsg =   ":" + sender.getNick() +
+        std::string allMsg =   ":" + sender.getNick() +
                                 " PRIVMSG " + target + " :" + msg + "\r\n";
 
         for (std::map<int,bool>::const_iterator it = chan.getClients().begin();
              it != chan.getClients().end(); ++it)
         {
             if (it->first != fd) // pas envoyer au client qui envoie
-                send(it->first, fullMsg.c_str(), fullMsg.size(), 0);
+                send(it->first, allMsg.c_str(), allMsg.size(), 0);
         }
     }
     // Message privé à un client
@@ -212,9 +212,9 @@ void Server::handlePrivMsg(int fd, std::string target, std::string msg)
             return;
         }
 
-        std::string fullMsg =   ":" + sender.getNick() +
+        std::string allMsg =   ":" + sender.getNick() +
                                 " PRIVMSG " + target + " :" + msg + "\r\n";
-        send(targetFd, fullMsg.c_str(), fullMsg.size(), 0);
+        send(targetFd, allMsg.c_str(), allMsg.size(), 0);
     }
 }
 
@@ -274,7 +274,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                 if (target.empty())
                 {
                     send(fd, ":server 411 :No recipient given (PRIVMSG)\r\n", 44, 0);
-                    // clientBuff.erase(0, pos + 1);
+                    clientBuff.erase(0, pos + 1);
                     continue ;
                 }
 
@@ -317,6 +317,23 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                 handlePart(fd, chanName, reason);
             }
 
+            else if (cmd == "TOPIC")
+            {
+                std::string chanName;
+                ss >> chanName;
+
+                std::string remains;
+                std::getline(ss, remains);
+
+                while (!remains.empty() && remains[0] == ' ')
+                    remains.erase(0, 1);
+                std::string topic;
+                if (!remains.empty() && remains[0] == ':')
+                    topic = remains.substr(1);
+                
+                handleTopic(fd, chanName, remains);
+
+            }
 
             // else if (cmd == "QUIT")
             // {
