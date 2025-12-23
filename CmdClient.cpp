@@ -131,6 +131,7 @@ void Server::handlePart(int fd, std::string chanName, std::string reason)
     }
     
     Channel &chan = _channels[chanName];
+
     if (!chan.hasClient(fd))
     {
         std::string err = ":server 442 " + chanName + " :You're not on that channel\r\n";
@@ -181,6 +182,13 @@ void Server::handlePrivMsg(int fd, std::string target, std::string msg)
         }
 
         Channel &chan = _channels[target];
+
+        if (!chan.hasClient(fd))
+        {
+            std::string err = ":server 404 " + target + " :Cannot send to channel\r\n";
+            send(fd, err.c_str(), err.size(), 0);
+            return;
+        }
         std::string fullMsg =   ":" + sender.getNick() +
                                 " PRIVMSG " + target + " :" + msg + "\r\n";
 
@@ -231,7 +239,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
             line.erase(line.size() - 1);
         if (!line.empty())
         {
-            std::cout << "📩 CMD reçue du client fd=" << fd << " : " << line << "." << std::endl;
+            std::cout << "📩 CMD reçue du client fd=" << fd << " : [" << line << "]" << std::endl;
 
             std::stringstream ss(line);
             std::string cmd;
@@ -274,31 +282,28 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                 if (target.empty())
                 {
                     send(fd, ":server 411 :No recipient given (PRIVMSG)\r\n", 44, 0);
-                    // clientBuff.erase(0, pos + 1);
+                    clientBuff.erase(0, pos + 1);
                     continue ;
                 }
-
                 std::string rest;
                 std::getline(ss, rest);
-                while (!rest.empty() && rest[0] == ' ')
+                while(!rest.empty() && rest[0] == ' ')
                     rest.erase(0, 1);
 
                 size_t colonPos = rest.find(':');//chercher le ':' qui introduit le msg
                 if (colonPos == std::string::npos)
                 {
-                    send(fd, ":server 412 :No text to send\r\n", 33, 0);
+                    send(fd, ":server 412 :No text to send\r\n", 31, 0);
                     clientBuff.erase(0, pos + 1);
                     continue ;
                 }
-
                 std::string msg = rest.substr(colonPos + 1);// tout après le ':'
                 if (msg.empty())
                 {
-                    send(fd, ":server 412 :No text to send\r\n", 33, 0);
+                    send(fd, ":server 412 :No text to send\r\n", 31, 0);
                     clientBuff.erase(0, pos + 1);
                     continue ;
                 }
-
                 handlePrivMsg(fd, target, msg);
             }
 
@@ -331,8 +336,6 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
             //         reason = "Client Quit";
             //     // handleQuit(fd, reason);
             // }
-
-
 
             else
             {
