@@ -37,10 +37,11 @@ class Server
         void passCmd(std::string pass, int fd);
         void nickCmd(std::string nick, int fd);
         void cmdIdentify(std::string &clientBuff, int fd);
-        void handleJoin(int fd, std::string chanName);
+        void handleJoin(int fd, std::string channelName);
         void handlePrivMsg(int fd, std::string target, std::string msg);
         // void handleQuit(int fd, std::string reason);
-        void handlePart(int fd, std::string chanName, std::string reason);
+        void handlePart(int fd, std::string channelName, std::string reason);
+        void InviteInchan(int fd, std::string &name, std::string &channelName);
 };
 
 

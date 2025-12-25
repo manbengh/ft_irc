@@ -17,7 +17,6 @@ class Channel
 
 
     public :
-
                 Channel(){};
                 Channel(std::string &name): _name(name){}
                 ~Channel();
@@ -29,7 +28,6 @@ class Channel
                 bool isOperator(int fd) const;
 
 };
-
 
 
 
