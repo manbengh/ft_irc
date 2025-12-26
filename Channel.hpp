@@ -27,6 +27,9 @@ class Channel
                 const std::map<int, bool> &getClients()const;
                 bool isOperator(int fd) const;
 
+                const std::string &getTopic() const;
+                void setTopic(const std::string &topic);
+
 };
 
 
