@@ -349,7 +349,10 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
             //     // handleQuit(fd, reason);
             // }
 
-
+            // KICK
+            // INVITE 
+            // MODE
+            // 
 
             else
             {
