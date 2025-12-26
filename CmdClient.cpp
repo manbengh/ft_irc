@@ -64,7 +64,7 @@ void Server::nickCmd(std::string nick, int fd)
 
 
 
-void Server::handleJoin(int fd, std::string channelName)
+void Server::handleJoin(int fd, std::string chanName)
 {
     Client &client = _clients[fd];
     if (!client.isRegistered())
@@ -74,42 +74,42 @@ void Server::handleJoin(int fd, std::string channelName)
         return ;
     }
 
-    if (channelName.empty())
+    if (chanName.empty())
     {
         std::string err = ":server 461 JOIN :Not enough parameters\r\n";
         send(fd, err.c_str(), err.size(), 0);
         return;
     }
-    if (channelName[0] != '#' || channelName.size() == 1)
+    if (chanName[0] != '#' || chanName.size() == 1)
     {
-        std::string err = ":server 403 " + channelName + " :No such channel\r\n";
+        std::string err = ":server 403 " + chanName + " :No such channel\r\n";
         send(fd, err.c_str(), err.size(), 0);
         return;
     }
     
-    if (_channels.find(channelName) == _channels.end())
-        _channels[channelName] = Channel(channelName);
+    if (_channels.find(chanName) == _channels.end())
+        _channels[chanName] = Channel(chanName);
     
-    Channel &chan = _channels[channelName];
+    Channel &chan = _channels[chanName];
 
     if (!chan.hasClient(fd))//verifie si le client est deja dans le channel
     {
         bool first = chan.getClients().empty();//premier client = operateur
         chan.addClient(fd, first);//ajoute le client
     }
-    std::string joinMsg = client.getNick() + " JOIN " + channelName + "\r\n";
+    std::string joinMsg = client.getNick() + " JOIN " + chanName + "\r\n";
     for (std::map<int , bool>::const_iterator it = chan.getClients().begin();
         it != chan.getClients().end(); it++)
         {
             send(it->first, joinMsg.c_str(), joinMsg.size(), 0);
         }
-    std::cout << "🟢 Client fd=" << fd << " a rejoint " << channelName << std::endl;
+    std::cout << "🟢 Client fd=" << fd << " a rejoint " << chanName << std::endl;
 
 }
 
 
 
-void Server::handlePart(int fd, std::string channelName, std::string reason)
+void Server::handlePart(int fd, std::string chanName, std::string reason)
 {
     Client &parter = _clients[fd];
 
@@ -118,30 +118,30 @@ void Server::handlePart(int fd, std::string channelName, std::string reason)
         send(fd, "451 :You have not registered\r\n", 31, 0);
         return;
     }
-    if (channelName.empty() || channelName.find('#'))
+    if (chanName.empty() || chanName.find('#'))
         return;
         
-    if (_channels.find(channelName) == _channels.end())
+    if (_channels.find(chanName) == _channels.end())
     {
-        std::string err = ":server 403 " + channelName + " :No such channel\r\n";
+        std::string err = ":server 403 " + chanName + " :No such channel\r\n";
         send(fd, err.c_str(), err.size(), 0);
         return;
     }
     
-    Channel &chan = _channels[channelName];
+    Channel &chan = _channels[chanName];
 
     if (!chan.hasClient(fd))
     {
-        std::string err = ":server 442 " + channelName + " :You're not on that channel\r\n";
+        std::string err = ":server 442 " + chanName + " :You're not on that channel\r\n";
         send(fd, err.c_str(), err.size(), 0);
         return;
     }
 
     std::string fullMsg;
     if (!reason.empty())
-        fullMsg = ":" + parter.getNick() + " PART " + channelName + " :" + reason + "\r\n";
+        fullMsg = ":" + parter.getNick() + " PART " + chanName + " :" + reason + "\r\n";
     else
-        fullMsg = ":" + parter.getNick() + " PART " + channelName + "\r\n";
+        fullMsg = ":" + parter.getNick() + " PART " + chanName + "\r\n";
     for (std::map<int,bool>::const_iterator it = chan.getClients().begin();
              it != chan.getClients().end(); ++it)
     {
@@ -150,7 +150,7 @@ void Server::handlePart(int fd, std::string channelName, std::string reason)
     chan.removeClient(fd);
 
     if (chan.getClients().empty())
-        _channels.erase(channelName);
+        _channels.erase(chanName);
 }
 
 
@@ -219,18 +219,18 @@ void Server::handlePrivMsg(int fd, std::string target, std::string msg)
 }
 
 
-void Server::InviteInchan(int fd, std::string &name, std::string &channelName)
-{
-    Client &invite = _clients[fd];
+// void Server::InviteInchan(int fd, std::string &name, std::string &chanName)
+// {
+//     Client &invite = _clients[fd];
     
-    if (!invite.isRegistered())
-    {
-        send(fd, "451 :You have not registered\r\n", 31, 0);
-        return;
-    }
+//     if (!invite.isRegistered())
+//     {
+//         send(fd, "451 :You have not registered\r\n", 31, 0);
+//         return;
+//     }
 
 
-}
+// }
 
 
 void Server::cmdIdentify(std::string &clientBuff, int fd)
@@ -275,9 +275,9 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
             }
             else if (cmd == "JOIN")
             {
-                std::string channelName;
-                ss >> channelName;
-                handleJoin(fd, channelName);
+                std::string chanName;
+                ss >> chanName;
+                handleJoin(fd, chanName);
             }
             else if (cmd == "PRIVMSG")
             {
@@ -315,8 +315,8 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
             }
             else if (cmd == "PART")
             {
-                std::string channelName;
-                ss >> channelName;
+                std::string chanName;
+                ss >> chanName;
             
                 std::string reason;
                 std::getline(ss, reason);
@@ -325,7 +325,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                     reason.erase(0, 1);
                 if (!reason.empty() && reason[0] == ':')
                     reason.erase(0, 1);
-                handlePart(fd, channelName, reason);
+                handlePart(fd, chanName, reason);
             }
             // else if (cmd == "QUIT")
             // {
@@ -356,17 +356,17 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                 std::string invite;
                 ss >> invite;
 
-                std::string channelName;
-                ss >> channelName;
+                std::string chanName;
+                ss >> chanName;
 
-                if(invite.empty() || channelName.empty())
+                if(invite.empty() || chanName.empty())
                 {
                     std::string err = ":server 461 INVITE :Not enough parameters\r\n";
                     send(fd, err.c_str(), err.size(), 0);
                     clientBuff.erase(0, pos + 1);
                     continue ;
                 }
-                InviteInchan(fd, invite, channelName);
+                InviteInchan(fd, invite, chanName);
             }
 
             Client &client = _clients[fd];
