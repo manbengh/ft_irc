@@ -11,6 +11,16 @@ bool Channel::isOperator(int fd) const
     return false;
 }
 
+void Channel::setOperator(int fd, bool isOp)
+{
+    std::map<int, bool>::iterator it = _clientCh.find(fd);
+    if (it != _clientCh.end())
+        it->second = isOp;
+}
+
+
+
+
 
 void Server::ftTopic(int fd, std::string chanName, std::string topic)
 {

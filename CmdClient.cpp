@@ -406,6 +406,29 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                 ftKick(fd, nick, chanName);
             }
 
+            else if(cmd == "MODE")
+            {
+                std::string chanName;
+                ss >> chanName;
+
+                std::string modes;
+                ss >> modes;
+
+                std::vector<std::string> params;
+                std::string p;
+                while (ss >> p)
+                    params.push_back(p);
+
+                if(modes.empty() || chanName.empty())
+                {
+                    std::string err = ":server 461 MODE :Not enough parameters\r\n";
+                    send(fd, err.c_str(), err.size(), 0);
+                    clientBuff.erase(0, pos + 1);
+                    continue ;
+                }
+                ftMode(fd, chanName, modes, params);
+            }
+
 
             Client &client = _clients[fd];
             if (client.isPassOK() && !client.getNick().empty() && !client.getUser().empty() && !client.isRegistered())
