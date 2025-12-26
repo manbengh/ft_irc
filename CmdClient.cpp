@@ -36,19 +36,19 @@ void Server::nickCmd(std::string nick, int fd)
     }
     if (!nick.empty())
     {
-        bool nickInUse = false;
+        bool nickUse = false;
         for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); ++it)
         {
             if (it->first == fd) // ignorer le client courant
                 continue;
             if (it->second.getNick() == nick && !it->second.getNick().empty())
             {
-                nickInUse = true;
+                nickUse = true;
                 break;
             }
         }
 
-        if (nickInUse)
+        if (nickUse)
         {
             std::string err = ":server 433 " + nick + " :Nickname is already in use\r\n";
             send(fd, err.c_str(), err.size(), 0);
@@ -57,16 +57,14 @@ void Server::nickCmd(std::string nick, int fd)
         else
         {
             _clients[fd].setNick(nick);
-            std::cout << "📛 Nick défini : " << nick << " pour fd=" << fd << std::endl;
+            std::cout << "✅ Nick défini : " << nick << " pour fd=" << fd << std::endl;
         }
     }
 }
 
 
 
-
-
-void Server::handleJoin(int fd, std::string chanName)
+void Server::ftJoin(int fd, std::string chanName)
 {
     Client &client = _clients[fd];
     if (!client.isRegistered())
@@ -111,7 +109,7 @@ void Server::handleJoin(int fd, std::string chanName)
 
 
 
-void Server::handlePart(int fd, std::string chanName, std::string reason)
+void Server::ftPart(int fd, std::string chanName, std::string reason)
 {
     Client &parter = _clients[fd];
 
@@ -131,6 +129,7 @@ void Server::handlePart(int fd, std::string chanName, std::string reason)
     }
     
     Channel &chan = _channels[chanName];
+
     if (!chan.hasClient(fd))
     {
         std::string err = ":server 442 " + chanName + " :You're not on that channel\r\n";
@@ -146,7 +145,6 @@ void Server::handlePart(int fd, std::string chanName, std::string reason)
     for (std::map<int,bool>::const_iterator it = chan.getClients().begin();
              it != chan.getClients().end(); ++it)
     {
-        // if (it->first != fd) // pas envoyer au client qui envoie (pas sur)
         send(it->first, allMsg.c_str(), allMsg.size(), 0);
     }
     chan.removeClient(fd);
@@ -157,20 +155,15 @@ void Server::handlePart(int fd, std::string chanName, std::string reason)
 
 
 
-
-void Server::handlePrivMsg(int fd, std::string target, std::string msg)
+void Server::ftPrivMsg(int fd, std::string target, std::string msg)
 {
-    Client &sender = _clients[fd];
+    Client &client = _clients[fd];
 
-    if (!sender.isRegistered())
+    if (!client.isRegistered())
     {
         send(fd, "451 :You have not registered\r\n", 31, 0);
         return;
     }
-
-    // if (target.empty() || msg.empty())
-    //     return;
-
     if (target[0] == '#')
     {
         if (_channels.find(target) == _channels.end())
@@ -181,7 +174,14 @@ void Server::handlePrivMsg(int fd, std::string target, std::string msg)
         }
 
         Channel &chan = _channels[target];
-        std::string allMsg =   ":" + sender.getNick() +
+
+        if (!chan.hasClient(fd))
+        {
+            std::string err = ":server 404 " + target + " :Cannot send to channel\r\n";
+            send(fd, err.c_str(), err.size(), 0);
+            return;
+        }
+        std::string allMsg =   ":" + client.getNick() +
                                 " PRIVMSG " + target + " :" + msg + "\r\n";
 
         for (std::map<int,bool>::const_iterator it = chan.getClients().begin();
@@ -212,11 +212,25 @@ void Server::handlePrivMsg(int fd, std::string target, std::string msg)
             return;
         }
 
-        std::string allMsg =   ":" + sender.getNick() +
+        std::string allMsg =   ":" + client.getNick() +
                                 " PRIVMSG " + target + " :" + msg + "\r\n";
         send(targetFd, allMsg.c_str(), allMsg.size(), 0);
     }
 }
+
+
+// void Server::ftInvite(int fd, std::string &name, std::string &chanName)
+// {
+//     Client &invite = _clients[fd];
+    
+//     if (!invite.isRegistered())
+//     {
+//         send(fd, "451 :You have not registered\r\n", 31, 0);
+//         return;
+//     }
+
+
+// }
 
 
 void Server::cmdIdentify(std::string &clientBuff, int fd)
@@ -231,7 +245,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
             line.erase(line.size() - 1);
         if (!line.empty())
         {
-            std::cout << "📩 CMD reçue du client fd=" << fd << " : " << line << "." << std::endl;
+            std::cout << "📩 CMD reçue du client fd=" << fd << " : [" << line << "]" << std::endl;
 
             std::stringstream ss(line);
             std::string cmd;
@@ -259,12 +273,11 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                     std::cout << "👤 User défini : " << user << " pour fd=" << fd << std::endl;
                 }
             }
-            
             else if (cmd == "JOIN")
             {
                 std::string chanName;
                 ss >> chanName;
-                handleJoin(fd, chanName);
+                ftJoin(fd, chanName);
             }
             else if (cmd == "PRIVMSG")
             {
@@ -277,31 +290,29 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                     clientBuff.erase(0, pos + 1);
                     continue ;
                 }
-
                 std::string rest;
                 std::getline(ss, rest);
-                while (!rest.empty() && rest[0] == ' ')
+                while(!rest.empty() && rest[0] == ' ')
                     rest.erase(0, 1);
 
                 size_t colonPos = rest.find(':');//chercher le ':' qui introduit le msg
                 if (colonPos == std::string::npos)
                 {
-                    send(fd, ":server 412 :No text to send\r\n", 33, 0);
+                    std::string err = ":server 412 :No text to send\r\n";
+                    send(fd, err.c_str(), err.size(), 0);
                     clientBuff.erase(0, pos + 1);
                     continue ;
                 }
-
                 std::string msg = rest.substr(colonPos + 1);// tout après le ':'
                 if (msg.empty())
                 {
-                    send(fd, ":server 412 :No text to send\r\n", 33, 0);
+                    std::string err = ":server 412 :No text to send\r\n";
+                    send(fd, err.c_str(), err.size(), 0);
                     clientBuff.erase(0, pos + 1);
                     continue ;
                 }
-
-                handlePrivMsg(fd, target, msg);
+                ftPrivMsg(fd, target, msg);
             }
-
             else if (cmd == "PART")
             {
                 std::string chanName;
@@ -314,7 +325,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                     reason.erase(0, 1);
                 if (!reason.empty() && reason[0] == ':')
                     reason.erase(0, 1);
-                handlePart(fd, chanName, reason);
+                ftPart(fd, chanName, reason);
             }
 
             else if (cmd == "TOPIC")
@@ -331,7 +342,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                 if (!remains.empty() && remains[0] == ':')
                     topic = remains.substr(1);
                 
-                handleTopic(fd, chanName, remains);
+                ftTopic(fd, chanName, remains);
 
             }
 
@@ -346,31 +357,67 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
             //         reason.erase(0, 1);
             //     if (reason.empty())
             //         reason = "Client Quit";
-            //     // handleQuit(fd, reason);
+            //     // ftQuit(fd, reason);
             // }
-
-            // KICK
-            // INVITE 
-            // MODE
-            // 
-
-            else
+            else if (cmd == "PING")
             {
-                std::string err = ":server 421 " + cmd + " :Unknown command\r\n";
-                send(fd, err.c_str(), err.size(), 0);
+                std::string line;
+                ss >> line;
+
+                if (line.empty())
+                    line = "server";
+
+                std::string result = "PONG " + line + "\r\n";
+                send(fd, result.c_str(), result.size(), 0);
             }
+            else if(cmd == "INVITE")
+            {
+                std::string invite;
+                ss >> invite;
+
+                std::string chanName;
+                ss >> chanName;
+
+                if(invite.empty() || chanName.empty())
+                {
+                    std::string err = ":server 461 INVITE :Not enough parameters\r\n";
+                    send(fd, err.c_str(), err.size(), 0);
+                    clientBuff.erase(0, pos + 1);
+                    continue ;
+                }
+                // ftInvite(fd, invite, chanName);
+            }
+
+            else if(cmd == "KICK")
+            {
+                std::string chanName;
+                ss >> chanName;
+
+                std::string nick;
+                ss >> nick;
+
+                if(nick.empty() || chanName.empty())
+                {
+                    std::string err = ":server 461 KICK :Not enough parameters\r\n";
+                    send(fd, err.c_str(), err.size(), 0);
+                    clientBuff.erase(0, pos + 1);
+                    continue ;
+                }
+                ftKick(fd, nick, chanName);
+            }
+
 
             Client &client = _clients[fd];
             if (client.isPassOK() && !client.getNick().empty() && !client.getUser().empty() && !client.isRegistered())
             {
                 client.setRegistered(true);
                 std::cout << "🎉 Client fd=" << fd << " is now REGISTERED !" << std::endl;
-
-                std::string welcome = ":server 001 " + client.getNick() + " :Welcome to the FT_IRC Network, " + client.getNick() + "\r\n";
+                //   "<client> :Welcome to the <networkname> Network, <nick>[!<user>@<host>]"
+                std::string welcome = ":server 001 " + client.getNick() + " :Welcome to the FT_IRC Network, " 
+                    + client.getNick() + "!" + client.getUser() + "@localhost\r\n";
                 send(fd, welcome.c_str(), welcome.size(), 0);
             }
         }
-
         clientBuff.erase(0, pos + 1);// effacer la ligne traitée
     }
 }
