@@ -1,6 +1,5 @@
 #include "Channel.hpp"
 
-// Channel();
 Channel::~Channel(){}
 
 void Channel::addClient(int fd, bool isOper)
@@ -17,6 +16,7 @@ void Channel::removeClient(int fd)
     {
         ope = it->second;
         _clientCh.erase(it);
+        _invited.erase(fd);
     }
 
     if (ope && !_clientCh.empty())
@@ -42,4 +42,29 @@ const std::string &Channel::getTopic() const
 void Channel::setTopic(const std::string &topic)
 {
     _topic = topic;
+}
+
+void Channel::inviteClient(int fd)
+{
+    _invited[fd] = true;
+}
+
+void Channel::removeInvite(int fd)
+{
+    _invited.erase(fd);
+}
+
+
+bool Channel::isInvited(int fd)
+{
+    return(_invited.find(fd) != _invited.end());
+}
+bool Channel::inviteOnly()
+{
+    return (_inviteOnly);
+}
+
+void Channel::setInviteIsOk(bool value)
+{
+    _inviteOnly = value;
 }

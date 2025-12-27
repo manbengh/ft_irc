@@ -67,6 +67,7 @@ void Server::nickCmd(std::string nick, int fd)
 void Server::handleJoin(int fd, std::string chanName)
 {
     Client &client = _clients[fd];
+
     if (!client.isRegistered())
     {
         std::string err = "451 :You have not registered\r\n";
@@ -92,10 +93,18 @@ void Server::handleJoin(int fd, std::string chanName)
     
     Channel &chan = _channels[chanName];
 
+    if(chan.inviteOnly() && !chan.isInvited(fd))
+    {
+        std::string err = ":server 473 " + chanName + " :Cannot join channel (+i)\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        return;
+    }
+
     if (!chan.hasClient(fd))//verifie si le client est deja dans le channel
     {
         bool first = chan.getClients().empty();//premier client = operateur
-        chan.addClient(fd, first);//ajoute le client
+        chan.addClient(fd, first);
+        chan.removeInvite(fd);
     }
     std::string joinMsg = client.getNick() + " JOIN " + chanName + "\r\n";
     for (std::map<int , bool>::const_iterator it = chan.getClients().begin();
@@ -219,18 +228,69 @@ void Server::handlePrivMsg(int fd, std::string target, std::string msg)
 }
 
 
-// void Server::InviteInchan(int fd, std::string &name, std::string &chanName)
-// {
-//     Client &invite = _clients[fd];
+void Server::InviteInchan(int fd, std::string &name, std::string &chanName)
+{
+    Client &invite = _clients[fd];
     
-//     if (!invite.isRegistered())
-//     {
-//         send(fd, "451 :You have not registered\r\n", 31, 0);
-//         return;
-//     }
+    if (!invite.isRegistered())
+    {
+        send(fd, "451 :You have not registered\r\n", 31, 0);
+        return;
+    }
+    if (_channels.find(chanName) == _channels.end())
+    {
+        std::string err = ":server 403 " + chanName + " :No such channel\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        return;
+    }
 
+    Channel &chan = _channels[chanName];
+    if (!chan.hasClient(fd))
+    {
+        std::string err = ":server 442 " + chanName + " :You're not on that channel\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        return;
+    }
 
-// }
+    if(!chan.isOperator(fd))
+    {
+        std::string err = ":server 482 " + chanName + " :You're not channel operator\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        return;
+    }
+
+    int targetFd = -1;
+    for (std::map<int, Client>::iterator it = _clients.begin(); it != _clients.end(); ++it)
+    {
+        if (it->second.getNick() == name)
+        {
+            targetFd = it->first;
+            break;
+        }
+    }
+    if (targetFd == -1)
+    {
+        std::string err = ":server 401 " + name + " :No such nick\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        return;
+    }
+    
+    if(chan.hasClient(targetFd))
+    {
+        std::string err = ":server 443 " + name + " " + chanName + " :is already on channel\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        return;
+    }
+
+    chan.inviteClient(targetFd);
+
+    std::string inviteMsg = ":" + invite.getNick() + " INVITE " + name + " " + chanName + "\r\n";
+    send(targetFd, inviteMsg.c_str(), inviteMsg.size(), 0);
+
+    // Confirmation pour l’inviteur
+    std::string msgInviting = ":server 341 " + invite.getNick() + " " + name + " " + chanName + "\r\n";
+    send(fd, msgInviting.c_str(), msgInviting.size(), 0);
+}
 
 
 void Server::cmdIdentify(std::string &clientBuff, int fd)
@@ -385,7 +445,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                     clientBuff.erase(0, pos + 1);
                     continue ;
                 }
-                // InviteInchan(fd, invite, chanName);
+                InviteInchan(fd, invite, chanName);
             }
 
             Client &client = _clients[fd];
