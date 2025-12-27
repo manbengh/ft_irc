@@ -228,7 +228,7 @@ void Server::handlePrivMsg(int fd, std::string target, std::string msg)
 }
 
 
-void Server::InviteInchan(int fd, std::string &name, std::string &chanName)
+void Server::ftInvite(int fd, std::string &name, std::string &chanName)
 {
     Client &invite = _clients[fd];
     
@@ -445,7 +445,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                     clientBuff.erase(0, pos + 1);
                     continue ;
                 }
-                InviteInchan(fd, invite, chanName);
+                ftInvite(fd, invite, chanName);
             }
 
             Client &client = _clients[fd];

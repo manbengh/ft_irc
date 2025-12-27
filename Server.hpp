@@ -42,7 +42,7 @@ class Server
         // void handleQuit(int fd, std::string reason);
         void handlePart(int fd, std::string chanName, std::string reason);
         void handleTopic(int fd, std::string chanName, std::string remains);
-        void InviteInchan(int fd, std::string &name, std::string &chanName);
+        void ftInvite(int fd, std::string &name, std::string &chanName);
 };
 
 
