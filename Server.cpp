@@ -3,8 +3,43 @@
 Server::Server(int port, std::string password) : _port(port), _password(password), _server_fd(-1)
 {}
 
-Server::~Server(){}
+Server::~Server() 
+{
+    for (size_t i = 0; i < _pollfds.size(); i++) {
+        std::cout << "Fermeture du fd: " << _pollfds[i].fd << std::endl;
+        close(_pollfds[i].fd);
+    }
+    _pollfds.clear();
+}
 
+bool Server::_sig = false;
+
+void Server::signalHandler(int signum)
+{
+    std::cout << "\nArret du serveur reçu signal = " << signum << std::endl;
+    Server::_sig = true;
+}
+
+void Server::closeServer()
+{
+    //  Fermer tous les sockets des clients dans poll
+    for (size_t i = 0; i < _pollfds.size(); i++)
+    {
+        if (_pollfds[i].fd != -1)
+        {
+            std::cout << "Fermeture du fd: " << _pollfds[i].fd << std::endl;
+            close(_pollfds[i].fd);
+            _pollfds[i].fd = -1;
+        }
+    }
+    
+    //  Vider les conteneurs
+    _pollfds.clear();
+    _clients.clear();
+    _channels.clear();
+
+    std::cout << "Serveur arrete proprement." << std::endl;
+}
 
 void Server::processPoll()
 {
@@ -14,11 +49,14 @@ void Server::processPoll()
     pollFd.revents = 0;
     _pollfds.push_back(pollFd);
     
-    while (true)
+    while (_sig == false)
     {
         int nbrSockEvent = poll(_pollfds.data(), _pollfds.size(), -1);
         if (nbrSockEvent < 0)
+        {
+            if (Server::_sig) break;
             throw std::runtime_error("poll() failed");
+        }
             
         if (_pollfds[0].revents & POLLIN)
         {
@@ -32,7 +70,13 @@ void Server::processPoll()
                 std::cerr << "accept() failed\n";
                 continue ;
             }
-            std::cout << "⭐ Nouveau client connecté : fd=" << clientFD << std::endl;
+            if (fcntl(clientFD, F_SETFL, O_NONBLOCK) == -1)
+            {
+                std::cerr << "fcntl() failed on client fd\n";
+                close(clientFD);
+                continue;
+            }
+            std::cout << "⭐ Nouveau client connecte : fd=" << clientFD << std::endl;
  
             pollfd clientPoll;
             clientPoll.fd = clientFD;
@@ -53,10 +97,10 @@ void Server::processPoll()
                 char buffer[512];
                 int fd = _pollfds[i].fd;
                 int bytes = recv(_pollfds[i].fd, buffer, sizeof(buffer) - 1, 0);// lis les donne envoyer par les clicli
-            
+
                 if (bytes <= 0)
                 {            
-                    std::cout << "❌ Client fd=" << _pollfds[i].fd << " déconnecté\n";
+                    std::cout << "❌ Client fd=" << _pollfds[i].fd << " deconnecte\n";
                     close(fd);
                     _clients.erase(fd);
                     close(_pollfds[i].fd);
@@ -75,7 +119,7 @@ void Server::processPoll()
         }
         
     }
-    
+    closeServer();
 }
 
 
@@ -95,11 +139,9 @@ void Server::startServ()
     addrServer.sin_addr.s_addr = INADDR_ANY;// Le serveur ecoute ttes addr dispo
     addrServer.sin_port = htons(_port); //mettre bon format pour le systeme
 
-    //bind
     if (bind(_server_fd, (sockaddr*)&addrServer, sizeof(addrServer)) < 0) // attacher la socket srvFd a addr/port 
         throw std::runtime_error("bind() failed");
     
-    //listen
     if (listen(_server_fd, SOMAXCONN) < 0)// somax = val max auto par syst
         throw std::runtime_error("listen() failed");
         

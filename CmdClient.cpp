@@ -25,7 +25,6 @@ void Server::passCmd(std::string pass, int fd)
 }
 
 
-
 void Server::nickCmd(std::string nick, int fd)
 {
     if (nick.empty())
@@ -47,7 +46,6 @@ void Server::nickCmd(std::string nick, int fd)
                 break;
             }
         }
-
         if (nickUse)
         {
             std::string err = ":server 433 " + nick + " :Nickname is already in use\r\n";
@@ -63,8 +61,7 @@ void Server::nickCmd(std::string nick, int fd)
 }
 
 
-
-void Server::handleJoin(int fd, std::string chanName)
+void Server::ftJoin(int fd, std::string chanName, std::string key)
 {
     Client &client = _clients[fd];
 
@@ -77,7 +74,7 @@ void Server::handleJoin(int fd, std::string chanName)
 
     if (chanName.empty())
     {
-        std::string err = ":server 461 JOIN :Not enough parameters\r\n";
+        std::string err = ":server 461 JOIN :No t enough parameters\r\n";
         send(fd, err.c_str(), err.size(), 0);
         return;
     }
@@ -93,9 +90,24 @@ void Server::handleJoin(int fd, std::string chanName)
     
     Channel &chan = _channels[chanName];
 
-    if(chan.inviteOnly() && !chan.isInvited(fd))
+    if(chan.getInviteOnly() && !chan.isInvited(fd))
     {
-        std::string err = ":server 473 " + chanName + " :Cannot join channel (+i)\r\n";
+        std::string err = ":server 473 " + client.getNick() + " " + chanName +
+                        " :Cannot join channel (+i)\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        return;
+    }
+
+    if (chan.hasPass() && !chan.checkPass(key))
+    {
+        std::string err = ":server 475 " + chanName + " :Cannot join channel (+k)\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        return;
+    }
+
+    if (chan.hasLimit() && chan.getClients().size() >= (size_t)chan.getLimit())
+    {
+        std::string err = ":server 471 " + client.getNick() + " " + chanName + " :Cannot join channel (+l)\r\n";
         send(fd, err.c_str(), err.size(), 0);
         return;
     }
@@ -106,7 +118,9 @@ void Server::handleJoin(int fd, std::string chanName)
         chan.addClient(fd, first);
         chan.removeInvite(fd);
     }
-    std::string joinMsg = client.getNick() + " JOIN " + chanName + "\r\n";
+
+    std::string joinMsg = ":" + client.getNick() + "!" + client.getUser() + "@localhost JOIN " +
+                      chanName + "\r\n";
     for (std::map<int , bool>::const_iterator it = chan.getClients().begin();
         it != chan.getClients().end(); it++)
         {
@@ -118,7 +132,7 @@ void Server::handleJoin(int fd, std::string chanName)
 
 
 
-void Server::handlePart(int fd, std::string chanName, std::string reason)
+void Server::ftPart(int fd, std::string chanName, std::string reason)
 {
     Client &parter = _clients[fd];
 
@@ -164,7 +178,7 @@ void Server::handlePart(int fd, std::string chanName, std::string reason)
 
 
 
-void Server::handlePrivMsg(int fd, std::string target, std::string msg)
+void Server::ftPrivMsg(int fd, std::string target, std::string msg)
 {
     Client &client = _clients[fd];
 
@@ -336,8 +350,10 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
             else if (cmd == "JOIN")
             {
                 std::string chanName;
+                std::string key;
                 ss >> chanName;
-                handleJoin(fd, chanName);
+                ss >> key;
+                ftJoin(fd, chanName, key);
             }
             else if (cmd == "PRIVMSG")
             {
@@ -371,7 +387,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                     clientBuff.erase(0, pos + 1);
                     continue ;
                 }
-                handlePrivMsg(fd, target, msg);
+                ftPrivMsg(fd, target, msg);
             }
             else if (cmd == "PART")
             {
@@ -385,7 +401,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                     reason.erase(0, 1);
                 if (!reason.empty() && reason[0] == ':')
                     reason.erase(0, 1);
-                handlePart(fd, chanName, reason);
+                ftPart(fd, chanName, reason);
             }
 
             else if (cmd == "TOPIC")
@@ -400,12 +416,13 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                     remains.erase(0, 1);
                 std::string topic;
                 if (!remains.empty() && remains[0] == ':')
+                {
+                    remains.erase(0, 1);    // pour enlever les : qui restaient 
                     topic = remains.substr(1);
-                
-                handleTopic(fd, chanName, remains);
+                }
+                ftTopic(fd, chanName, remains);
 
             }
-
             // else if (cmd == "QUIT")
             // {
             //     std::string reason;
@@ -417,7 +434,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
             //         reason.erase(0, 1);
             //     if (reason.empty())
             //         reason = "Client Quit";
-            //     // handleQuit(fd, reason);
+            //  
             // }
             else if (cmd == "PING")
             {
@@ -447,13 +464,54 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                 }
                 ftInvite(fd, invite, chanName);
             }
+            else if(cmd == "MODE")
+            {
+                std::string chanName;
+                ss >> chanName;
+
+                std::string modes;
+                ss >> modes;
+
+                std::vector<std::string> params;
+                std::string p;
+                while (ss >> p)
+                    params.push_back(p);
+
+                if(modes.empty() || chanName.empty())
+                {
+                    std::string err = ":server 461 MODE :Not enough parameters\r\n";
+                    send(fd, err.c_str(), err.size(), 0);
+                    clientBuff.erase(0, pos + 1);
+                    continue ;
+                }
+                ftMode(fd, chanName, modes, params);
+            }
+            else if(cmd == "KICK")
+            {
+                std::string chanName;
+                ss >> chanName;
+
+                std::string nick;
+                ss >> nick;
+                std::string reason;
+                ss >> reason;
+
+                if(nick.empty() || chanName.empty())
+                {
+                    std::string err = ":server 461 KICK :Not enough parameters\r\n";
+                    send(fd, err.c_str(), err.size(), 0);
+                    clientBuff.erase(0, pos + 1);
+                    continue ;
+                }
+                ftKick(fd, nick, chanName, reason);
+            }
 
             Client &client = _clients[fd];
             if (client.isPassOK() && !client.getNick().empty() && !client.getUser().empty() && !client.isRegistered())
             {
                 client.setRegistered(true);
                 std::cout << "🎉 Client fd=" << fd << " is now REGISTERED !" << std::endl;
-                //   "<client> :Welcome to the <networkname> Network, <nick>[!<user>@<host>]"
+                
                 std::string welcome = ":server 001 " + client.getNick() + " :Welcome to the FT_IRC Network, " 
                     + client.getNick() + "!" + client.getUser() + "@localhost\r\n";
                 send(fd, welcome.c_str(), welcome.size(), 0);

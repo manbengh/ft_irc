@@ -1,5 +1,10 @@
 #include "Channel.hpp"
 
+Channel::Channel(std::string &name): _name(name), _inviteOnly(false), _topicRestricted(false), _clientLimit(-1)
+{
+
+}
+
 Channel::~Channel(){}
 
 void Channel::addClient(int fd, bool isOper)
@@ -59,12 +64,33 @@ bool Channel::isInvited(int fd)
 {
     return(_invited.find(fd) != _invited.end());
 }
-bool Channel::inviteOnly()
+
+bool Channel::getInviteOnly()
 {
     return (_inviteOnly);
 }
 
-void Channel::setInviteIsOk(bool value)
+void Channel::setInviteOnly(bool value)
 {
     _inviteOnly = value;
+}
+
+void Channel::setLimit(int limit)
+{
+    _clientLimit = limit;
+}
+
+void Channel::removeLimit()
+{
+    _clientLimit = -1;
+}
+
+bool Channel::hasLimit() 
+{
+    return _clientLimit > 0;
+}
+
+int Channel::getLimit()
+{
+    return _clientLimit;
 }

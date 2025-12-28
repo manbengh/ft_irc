@@ -1,16 +1,8 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   main.cpp                                           :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: ahbey <ahbey@student.42.fr>                +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/12/05 18:23:44 by manbengh          #+#    #+#             */
-/*   Updated: 2025/12/27 16:18:54 by ahbey            ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
 
 #include "Server.hpp"
+#include <csignal>
+
+Server* g_server = NULL;
 
 int parseInput(int port, std::string password)
 {
@@ -20,6 +12,16 @@ int parseInput(int port, std::string password)
     return 0;
 }
 
+void ctrlSignal(int sig)
+{
+    if(g_server)
+    {
+        std::cout << "rouh tgawat toi et les fd" << sig << "bye\n";
+        delete g_server;
+        g_server = NULL;
+    }
+    exit(1);
+}
 
 int main(int ac, char **av)
 {
@@ -28,8 +30,6 @@ int main(int ac, char **av)
         std::cerr << "Error : ./ircserv <port> <password>\n";
         return 1;
     }
-    
-
     try
     {
         int port = std::atoi(av[1]);
@@ -39,12 +39,18 @@ int main(int ac, char **av)
             std::cerr << "Error : invalid arguments\n" << std::endl;
             return 1;
         }
+        std::signal(SIGINT, ctrlSignal);
+        std::signal(SIGPIPE, SIG_IGN);
         
-        Server server(port, password);
-        server.startServ();
+        g_server = new Server(port, password);
+        g_server->startServ();
     }
     catch(const std::exception& e)
     {
         std::cerr << e.what() << std::endl;
+        delete g_server;
+        return 1;
     }
+    delete g_server;
+    return 0;
 }

@@ -13,6 +13,7 @@
 #include "Channel.hpp"
 #include <map>
 #include <sstream>
+#include <fcntl.h>
 
 class Client;
 class Channel;  
@@ -24,6 +25,7 @@ class Server
         int _server_fd;
         std::vector<pollfd> _pollfds;
         std::map<int, Client> _clients;
+        static bool _sig;
 
         std::map<std::string, Channel> _channels;
 
@@ -33,16 +35,21 @@ class Server
 
         void startServ();
         void processPoll();
-        void registerClient(int fd);
         void passCmd(std::string pass, int fd);
         void nickCmd(std::string nick, int fd);
         void cmdIdentify(std::string &clientBuff, int fd);
-        void handleJoin(int fd, std::string chanName);
-        void handlePrivMsg(int fd, std::string target, std::string msg);
-        // void handleQuit(int fd, std::string reason);
-        void handlePart(int fd, std::string chanName, std::string reason);
-        void handleTopic(int fd, std::string chanName, std::string remains);
+        void ftJoin(int fd, std::string chanName, std::string key);
+        void ftPrivMsg(int fd, std::string target, std::string msg);
+        // void ftQuit(int fd, std::string reason);
+        void ftPart(int fd, std::string chanName, std::string reason);
+        void ftTopic(int fd, std::string chanName, std::string remains);
         void ftInvite(int fd, std::string &name, std::string &chanName);
+        void ftKick(int fd, std::string &name, std::string &chanName, std::string reason);
+        void ftMode(int fd, std::string &name, std::string &chanName, std::vector<std::string> &params);
+        int findClientByNick(std::string &nick);
+
+        static void signalHandler(int signum);
+        void closeServer();
 };
 
 
