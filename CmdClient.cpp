@@ -48,14 +48,16 @@ void Server::nickCmd(std::string nick, int fd)
         }
         if (nickUse)
         {
-            std::string err = ":server 433 " + nick + " :Nickname is already in use\r\n";
+            std::string err = ":server 433 " + (_clients[fd].getNick().empty() ? "*" : _clients[fd].getNick()) +
+                    " " + nick + " :Nickname is already in use\r\n";
             send(fd, err.c_str(), err.size(), 0);
-            std::cout << "⚠️  Nick " << nick << " déjà utilisé — NICK ignoré pour fd=" << fd << std::endl;
+            std::cout << "⚠️  Nick " << nick << " deja utilise — NICK ignore pour fd=" << fd << std::endl;
+            return;
         }
         else
         {
             _clients[fd].setNick(nick);
-            std::cout << "✅ Nick défini : " << nick << " pour fd=" << fd << std::endl;
+            std::cout << "🆔 Nick défini : " << nick << " pour fd=" << fd << std::endl;
         }
     }
 }
@@ -100,7 +102,7 @@ void Server::ftJoin(int fd, std::string chanName, std::string key)
 
     if (chan.hasPass() && !chan.checkPass(key))
     {
-        std::string err = ":server 475 " + chanName + " :Cannot join channel (+k)\r\n";
+        std::string err = ":server 475 " + client.getNick() + " " + chanName + " :Cannot join channel (+k)\r\n";
         send(fd, err.c_str(), err.size(), 0);
         return;
     }
@@ -111,8 +113,14 @@ void Server::ftJoin(int fd, std::string chanName, std::string key)
         send(fd, err.c_str(), err.size(), 0);
         return;
     }
-
-    if (!chan.hasClient(fd))//verifie si le client est deja dans le channel
+    if (chan.hasClient(fd))
+    {
+        std::string err = ":server 443 " + client.getNick() + " " + client.getNick() 
+                        + " " + chanName + " :User is already on the channel\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        return;
+    }
+    if(!chan.hasClient(fd))//verifie si le client est deja dans le channel
     {
         bool first = chan.getClients().empty();//premier client = operateur
         chan.addClient(fd, first);
@@ -291,7 +299,7 @@ void Server::ftInvite(int fd, std::string &name, std::string &chanName)
     
     if(chan.hasClient(targetFd))
     {
-        std::string err = ":server 443 " + name + " " + chanName + " :is already on channel\r\n";
+        std::string err = ":server 443 " + invite.getNick() + " " + name + " " + chanName + " :is already on channel\r\n";
         send(fd, err.c_str(), err.size(), 0);
         return;
     }
@@ -314,7 +322,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
     while ((pos = clientBuff.find('\n')) != std::string::npos)
     {
         std::string line = clientBuff.substr(0, pos);
-        // enlever '\r' final si present
+
         if (!line.empty() && line[line.size() - 1] == '\r')
             line.erase(line.size() - 1);
         if (!line.empty())
@@ -324,6 +332,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
             std::stringstream ss(line);
             std::string cmd;
             ss >> cmd;
+
             
             if (cmd == "PASS")
             {
@@ -344,7 +353,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                 if (!user.empty())
                 {
                     _clients[fd].setUser(user);
-                    std::cout << "👤 User défini : " << user << " pour fd=" << fd << std::endl;
+                    std::cout << "👤 User defini : " << user << " pour fd=" << fd << std::endl;
                 }
             }
             else if (cmd == "JOIN")
@@ -403,7 +412,6 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                     reason.erase(0, 1);
                 ftPart(fd, chanName, reason);
             }
-
             else if (cmd == "TOPIC")
             {
                 std::string chanName;
@@ -421,21 +429,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                     topic = remains.substr(1);
                 }
                 ftTopic(fd, chanName, remains);
-
             }
-            // else if (cmd == "QUIT")
-            // {
-            //     std::string reason;
-            //     ss >> reason;
-
-            //     if (!reason.empty() && reason[0] == ' ')
-            //         reason.erase(0, 1);
-            //     if (!reason.empty() && reason[0] == ':')
-            //         reason.erase(0, 1);
-            //     if (reason.empty())
-            //         reason = "Client Quit";
-            //  
-            // }
             else if (cmd == "PING")
             {
                 std::string line;
