@@ -44,7 +44,7 @@ class Server
         void ftPart(int fd, std::string chanName, std::string reason);
         void ftTopic(int fd, std::string chanName, std::string remains);
         void ftInvite(int fd, std::string &name, std::string &chanName);
-        void ftKick(int fd, std::string &name, std::string &chanName, std::string reason);
+        void ftKick(int fd, std::string &name, std::string &chanName);
         void ftMode(int fd, std::string &name, std::string &chanName, std::vector<std::string> &params);
         int findClientByNick(std::string &nick);
 

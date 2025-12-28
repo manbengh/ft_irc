@@ -82,7 +82,7 @@ void Server::ftTopic(int fd, std::string chanName, std::string topic)
 }
 
 
-void Server::ftKick(int fd, std::string &name, std::string &chanName,std::string reason)
+void Server::ftKick(int fd, std::string &name, std::string &chanName)
 {
     Client &client = _clients[fd];
     if (!client.isRegistered())
@@ -140,7 +140,7 @@ void Server::ftKick(int fd, std::string &name, std::string &chanName,std::string
     }
     
     std::string kickMsg = ":" + client.getNick() + "!" + client.getUser() + "@localhost "
-                        + "KICK " + chanName + " " + name + reason + "\r\n";
+                        + "KICK " + chanName + " " + name + "\r\n";
     
     for (std::map<int,bool>::const_iterator it = chan.getClients().begin();
              it != chan.getClients().end(); ++it)

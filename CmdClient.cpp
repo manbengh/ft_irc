@@ -493,8 +493,6 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
 
                 std::string nick;
                 ss >> nick;
-                std::string reason;
-                ss >> reason;
 
                 if(nick.empty() || chanName.empty())
                 {
@@ -503,7 +501,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                     clientBuff.erase(0, pos + 1);
                     continue ;
                 }
-                ftKick(fd, nick, chanName, reason);
+                ftKick(fd, nick, chanName);
             }
 
             Client &client = _clients[fd];
