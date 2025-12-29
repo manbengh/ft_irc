@@ -16,7 +16,7 @@ void ctrlSignal(int sig)
 {
     if(g_server)
     {
-        std::cout << "rouh tgawat toi et les fd" << sig << "bye\n";
+        std::cout << " CLOSE SERVER " << sig << " bye\n";
         delete g_server;
         g_server = NULL;
     }

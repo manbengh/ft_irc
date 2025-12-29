@@ -509,6 +509,7 @@ void Server::cmdIdentify(std::string &clientBuff, int fd)
                 send(fd, welcome.c_str(), welcome.size(), 0);
             }
         }
+        
         clientBuff.erase(0, pos + 1);// effacer la ligne traitée
     }
 }

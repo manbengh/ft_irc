@@ -109,15 +109,12 @@ void Server::processPoll()
                     continue;
                 }
                 buffer[bytes] = '\0';
-
                 std::string &clientBuff = _clients[fd].getBuffer();
                 clientBuff.append(buffer);
                 cmdIdentify(clientBuff, fd);
                 _pollfds[i].revents = 0;
             }
-
         }
-        
     }
     closeServer();
 }
